@@ -1,0 +1,116 @@
+#+title: struct-completion.el
+
+struct-completion completes keyword slot arguments inside [[info:cl#Structures][cl-defstruct]]
+constructor calls using runtime introspection. When you type
+=(make-my-struct :)=, the package queries ~cl--class-slots~ and the constructor
+arglist to offer slot-aware candidates with type annotations, inheritance
+indicators, and per-slot documentation in the popup. It works with any
+completion UI that reads standard [[info:elisp#Completion in Buffers][completion-at-point-functions]] properties:
+[[https://github.com/minad/corfu][Corfu]], [[https://company-mode.github.io/][Company]], or the built-in default completion. *The struct definition must
+be evaluated in the current session for candidates to appear*.
+
+The package handles all =cl-defstruct= constructor topologies: default =make-TYPE=
+constructors, renamed =&key= constructors, mixed positional-plus-keyword
+constructors (offering only the =&key= parameters), and =:include= inheritance
+chains of any depth. BOA constructors without =&key= are correctly ignored. A
+detector registry (~struct-completion-detectors~) allows extension to other
+keyword-plist-accepting forms without modifying the core.
+
+* Screenshots
+
+[[https://github.com/gggion/struct-completion.el/blob/screenshots/showcase.gif?raw=true]]
+
+
+* Configuration
+
+#+begin_src emacs-lisp
+(use-package struct-completion
+  :hook (emacs-lisp-mode . struct-completion-mode))
+#+end_src
+
+
+* Examples:
+You can test completion with these examples:
+
+- Inheritance ::
+
+#+begin_src elisp
+(cl-defstruct (http-request
+               (:constructor http-request-create)
+               (:copier nil))
+  (url nil :type string
+       :documentation "Fully qualified request URL including scheme.")
+  (method :get :type (member :get :post :put :delete)
+          :documentation "HTTP method keyword.
+Defaults to `:get' for safe requests."))
+
+(cl-defstruct (auth-request
+               (:include http-request)
+               (:constructor nil)
+               (:constructor auth-request-create)
+               (:constructor auth-request-quick (&key url token))
+               (:copier nil))
+  (token nil :type string
+         :documentation "Bearer token for Authorization header.")
+  (refresh-p nil :type boolean
+             :documentation "Non-nil means automatically refresh on 401 responses."))
+
+(http-request :)        ;; => original constructor -> 2 slots
+(auth-request-create :) ;; => second constructor with inheritance -> 4 slots
+(auth-request-quick :)  ;; => limited constructor, offers only :url, :token
+#+end_src
+
+After evaluating both forms, typing =(auth-request-create :)= offers:
+
+| Candidate    | Annotation            |
+|--------------+-----------------------|
+| =:url=       | =string ^=            |
+| =:method=    | =(member :get ...) ^= |
+| =:token=     | =string=              |
+| =:refresh-p= | =boolean=             |
+
+Typing =(auth-request-quick :)= offers only =:url= and =:token= since the
+constructor arglist restricts the visible slots.
+
+Selecting a candidate shows its =:documentation= string in the popup. Inherited
+slots from =http-request= are marked with =^=.
+
+- By Order of Arguments (BOA) Constructors ::
+Constructors with positional arguments and no =&key= produce no candidates. When
+a struct has both a BOA and a =&key= constructor, each is handled independently:
+
+#+begin_src elisp
+;; remember to eval the construct first in order to get completion
+(cl-defstruct (vec3
+               (:constructor nil)
+               (:constructor vec3-kw)
+               (:constructor vec3-boa (x y z)))
+  (x 0.0 :type number)
+  (y 0.0 :type number)
+  (z 0.0 :type number))
+
+(vec3-kw  :)   ;; => offers :x, :y, :z
+(vec3-boa :)   ;; => no keyword completion (positional)
+#+end_src
+
+More info on BOA constructors [[https://doc.emacsen.de/cl/structures.html#constructor][here]] (weird name I know).
+
+
+* ROADMAP
+
+| Feature                           | Status      | Description                                                               |
+|-----------------------------------+-------------+---------------------------------------------------------------------------|
+| =cl-defstruct= keyword completion | Done        | Complete =:slot= keywords inside constructor calls                        |
+| Type annotations                  | Done        | Show slot =:type= specifier as completion suffix                          |
+| Per-slot documentation popup      | Done        | Render =:type=, default, provenance, and =:documentation= in doc buffer   |
+| =:include= inheritance            | Done        | Inherited slots appear as candidates marked with =^=                      |
+| Ancestor metadata recovery        | Done        | Recover =:type= and =:documentation= lost by =:include= default overrides |
+| BOA / mixed constructor handling  | Done        | Reject positional constructors; offer only =&key= params in mixed cases   |
+| Slot filtering                    | Done        | Cross-reference slots against constructor arglist to exclude injections   |
+| Already-specified slot fading     | In Progress | Visually dim slots already provided in the current call                   |
+| EIEIO =make-instance= support     | In Progress | Detect EIEIO class constructors and complete =:initarg= keywords          |
+| Internal slot hiding              | Planned     | Optionally suppress candidates starting with =:-=                         |
+
+
+
+*
