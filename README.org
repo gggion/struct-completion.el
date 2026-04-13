@@ -1,4 +1,11 @@
 #+title: struct-completion.el
+#+OPTIONS: ^:nil
+#+HTML: <a href="https://melpa.org/#/struct-completion"><img alt="MELPA" src="https://melpa.org/packages/struct-completion-badge.svg"/></a>
+
+#+begin_quote
+[!IMPORTANT]
+NOW ON MELPA!
+#+end_quote
 
 struct-completion completes keyword slot arguments inside [[info:cl#Structures][cl-defstruct]]
 constructor calls using runtime introspection. When you type
@@ -20,14 +27,30 @@ keyword-plist-accepting forms without modifying the core.
 
 [[https://github.com/gggion/struct-completion.el/blob/screenshots/showcase.gif?raw=true]]
 
+* Install
 
-* Configuration
-
+- MELPA (recommended) ::
 #+begin_src emacs-lisp
 (use-package struct-completion
   :hook (emacs-lisp-mode . struct-completion-mode))
 #+end_src
 
+- use-package with vc (Emacs 30+) ::
+#+begin_src emacs-lisp
+(use-package struct-completion
+  :vc (:url "https://github.com/gggion/struct-completion.el"
+       :rev :newest)
+  :hook (emacs-lisp-mode . struct-completion-mode))
+#+end_src
+
+- Straight or Elpaca ::
+#+begin_src emacs-lisp
+(straight-use-package 'struct-completion)
+;; OR
+(elpaca struct-completion)
+
+(add-hook 'emacs-lisp-mode-hook #'struct-completion-mode)
+#+end_src
 
 * Examples:
 You can test completion with these examples:
